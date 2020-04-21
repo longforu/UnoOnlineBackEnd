@@ -7,7 +7,10 @@ module.exports = server=>{
     io.on('connect',async (socket)=>{
         const emitToAll = (message,data)=>io.to(socket.room).emit(message,data)
 
-        const update = ()=>emitToAll('Update',socket.game)
+        const update = async ()=>{
+            const game = await Game.findById(socket.room).select('-deck')
+            emitToAll('Update',game)
+        }
 
         const socketFunctionFactory = (message,func)=>socket.on(message,async (data)=>{
             socket.game = await Game.findById(socket.room)
