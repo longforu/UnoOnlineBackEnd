@@ -82,6 +82,7 @@ const checkWinCondition = gameFunctionFactory(async (game)=>{
         else if(game.players[playerid].cards.length === 1){
             game.feed.push(`${game.players[playerid].username} only have 1 card left!`)
             game.directives.push([5,playerid])
+            await game.save()
         }
     }
     return false
