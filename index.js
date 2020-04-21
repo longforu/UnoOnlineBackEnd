@@ -12,8 +12,8 @@ require('mongoose').connect(process.env.MONGODB_URI)
 const _ = require('lodash')
 
 const handleSignIn = async (req,res)=>{
-    console.log(req.body.id,'Hello')
     const game = await Game.findById(req.id || req.body.id)
+    if(game.inGame || game.players.length === 4) return res.status(400).error("Game had started.")
     const userid = await addPlayerToGame(game,req.body.username)
     const token = jwt.sign({userid,id:game._id},process.env.SECRET_KEY)
     return res.send({token,playerid:userid,id:game._id})

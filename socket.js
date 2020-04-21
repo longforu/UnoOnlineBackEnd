@@ -53,6 +53,7 @@ module.exports = server=>{
 
         socketFunctionFactory('Start Game',async ()=>{
             if(socket.game.inGame) throw Error("The game had started")
+            if(socket.game.players.length === 1) throw Error("Not enough players")
             socket.game.inGame = true
             await distributeInitialCard(socket.game)
             await passTurn(socket.game)
