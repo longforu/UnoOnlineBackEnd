@@ -45,6 +45,7 @@ module.exports = server=>{
             socket.game.inGame = true
             await distributeInitialCard(socket.game)
             await passTurn(socket.game)
+            update()
         })
 
         turnFunctionFactory('Draw Card',async ()=>{
