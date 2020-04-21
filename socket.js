@@ -23,7 +23,7 @@ module.exports = server=>{
             const win = await checkWinCondition(socket.game)
             if(Number.isInteger(win)){
                 socket.game.inGame = false
-                await game.save()
+                await socker.game.save()
                 return emitToAll('End Game',win)
             } 
             update()
