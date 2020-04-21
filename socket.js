@@ -21,7 +21,7 @@ module.exports = server=>{
             if(!socket.game.inGame) throw Error("The game hasn't started yet")
             await func(data)
             const win = await checkWinCondition(socket.game)
-            if(typeof win === 'number'){
+            if(Number.isInteger(win)){
                 socket.game.inGame = false
                 await game.save()
                 return emitToAll('End Game',win)
