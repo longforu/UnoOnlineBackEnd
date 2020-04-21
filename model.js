@@ -108,12 +108,12 @@ const handleDraw = async (game,playerid,card)=>{
     else game.directives.push([3,next])
 }
 
-const playCard = gameFunctionFactory(async (game,playerid,card)=>{
+const playCard = gameFunctionFactory(async (game,playerid,card,extraColor)=>{
     game.feed.push(`${game.players[playerid].username} played a card.`)
     game.directives.push([4,playerid])
     game.players[playerid].cards.splice(game.players[playerid].cards.indexOf(card),1)
     game.deck.push(card)
-    game.currentTopCard = card
+    game.currentTopCard = ((card==='Draw 4'||card==='Wild')?extraColor+' ':'') + card
     if(card === 'Draw 4') await handleDraw(game,playerid,4)
     else{
         const action = card.split(' ').slice(1).join(' ')
@@ -141,6 +141,18 @@ const passTurn = gameFunctionFactory(async (game)=>{
     await game.save()
 })
 
+const restartGame = gameFunctionFactory(async (game)=>{
+    const id = game._id
+    await Game.findByIdAndDelete(id)
+    const newGame = new Game
+    newGame.players = game.players.map(e=>new Player({username:e.username}))
+    newGame._id = id
+    const firstCard = newGame.deck.splice(_.random(newGame.deck.length-1),1)[0]
+    newGame.currentTopCard = firstCard
+    await newGame.save()
+    return newGame
+})
+
 module.exports = {
-    Game,addPlayerToGame,drawCardToPlayer,checkWinCondition,distributeInitialCard,playCard,passTurn
+    Game,addPlayerToGame,drawCardToPlayer,checkWinCondition,distributeInitialCard,playCard,passTurn,restartGame
 }
