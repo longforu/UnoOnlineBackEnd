@@ -17,18 +17,16 @@ module.exports = server=>{
             }
         })
         const turnFunctionFactory = (message,func)=>socketFunctionFactory(message,async (data)=>{
+            if(socket.userid !== socket.game.onTurn) throw Error("Not your turn")
+            if(!socket.game.inGame) throw Error("The game hasn't started yet")
+            await func(data)
             const win = await checkWinCondition(socket.game)
             if(typeof win === 'number'){
                 socket.game.inGame = false
                 await game.save()
                 return emitToAll('End Game',win)
-            }
-            if(socket.userid !== socket.game.onTurn) throw Error("Not your turn")
-            if(!socket.game.inGame) throw Error("The game hasn't started yet")
-            else{
-                await func(data)
-                update()
             } 
+            update()
         })
 
         const token = socket.handshake.query.token
