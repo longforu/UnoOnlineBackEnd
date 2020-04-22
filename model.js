@@ -8,6 +8,10 @@ const playerSchema = new mongoose.Schema({
     cards:{
         type:[String],
         default:[]
+    },
+    bot:{
+        type:Boolean,
+        default:false
     }
 })
 
@@ -60,6 +64,15 @@ const gameFunctionFactory = func=>async(game,...args)=>{
 
 const addPlayerToGame = gameFunctionFactory(async (game,username)=>{
     const player = new Player({username})
+    const id = game.players.length
+    game.players.push(player)
+    game.feed.push(`${username} joined the game.`)
+    await game.save()
+    return id
+})
+
+const addBot = gameFunctionFactory(async (game,username)=>{
+    const player = new Player({username,bot:true})
     const id = game.players.length
     game.players.push(player)
     game.feed.push(`${username} joined the game.`)
@@ -145,7 +158,8 @@ const restartGame = gameFunctionFactory(async (game)=>{
     const id = game._id
     await Game.findByIdAndDelete(id)
     const newGame = new Game
-    newGame.players = game.players.map(e=>new Player({username:e.username}))
+    console.log(game)
+    newGame.players = game.players.map(e=>new Player({username:e.username,bot:e.bot}))
     newGame._id = id
     const firstCard = newGame.deck.splice(_.random(newGame.deck.length-1),1)[0]
     newGame.currentTopCard = firstCard
@@ -154,5 +168,5 @@ const restartGame = gameFunctionFactory(async (game)=>{
 })
 
 module.exports = {
-    Game,addPlayerToGame,drawCardToPlayer,checkWinCondition,distributeInitialCard,playCard,passTurn,restartGame
+    Game,addPlayerToGame,drawCardToPlayer,checkWinCondition,distributeInitialCard,playCard,passTurn,restartGame,addBot
 }
