@@ -56,6 +56,10 @@ const gameSchema = new mongoose.Schema({
     },
     directives:{
         type:[[Number]],default:[]
+    },
+    endGame:{
+        type:Boolean,
+        default:false
     }
 })
 const ttl = require('mongoose-ttl')
@@ -95,10 +99,10 @@ const drawCardToPlayer = gameFunctionFactory(async (game,playerid)=>{
     return card
 })
 
-const checkWinCondition = gameFunctionFactory(async (game)=>{
+const checkWinCondition = gameFunctionFactory(async (game,currentuser)=>{
     for(let playerid= 0;playerid<game.players.length; playerid++){
         if(game.players[playerid].cards.length === 0) return playerid
-        else if(game.players[playerid].cards.length === 1){
+        else if(game.players[playerid].cards.length === 1 && playerid === currentuser){
             game.feed.push(`${game.players[playerid].username} only have 1 card left!`)
             game.directives.push([5,playerid])
             await game.save()

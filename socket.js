@@ -73,9 +73,10 @@ module.exports = server=>{
         const awaitTime = ()=>new Promise(r=>setTimeout(r,1000))
         const socketPassTurn = async ()=>{
             await passTurn(socket.game)
-            const win = await checkWinCondition(socket.game)
+            const win = await checkWinCondition(socket.game,socket.userid)
             if(Number.isInteger(win)){
                 socket.game.inGame = false
+                socket.game.endGame = true
                 await socket.game.save()
                 cancelTurnTimer()
                 return emitToAll('End Game',win)
