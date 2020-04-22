@@ -12,6 +12,10 @@ const playerSchema = new mongoose.Schema({
     bot:{
         type:Boolean,
         default:false
+    },
+    active:{
+        type:Boolean,
+        default:true
     }
 })
 
@@ -54,6 +58,8 @@ const gameSchema = new mongoose.Schema({
         type:[[Number]],default:[]
     }
 })
+const ttl = require('mongoose-ttl')
+gameSchema.plugin(ttl,{ttl:'2d'})
 
 const Game = mongoose.model('games',gameSchema)
 

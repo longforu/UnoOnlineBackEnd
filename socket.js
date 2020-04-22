@@ -51,8 +51,10 @@ module.exports = server=>{
         })
         const turnFunctionFactory = (message,func)=>socketFunctionFactory(message,async (data)=>{
             if(socket.userid !== socket.game.onTurn) throw Error("Not your turn")
-            console.log(socket.game)
             if(!socket.game.inGame) throw Error("The game hasn't started yet")
+            socket.game.players[socket.userid].active = true
+            await socket.game.save()
+            beginTurnTimer()
             await func(data)
             update()
         })
@@ -80,8 +82,10 @@ module.exports = server=>{
                 console.log(win)
                 socket.game.inGame = false
                 await socket.game.save()
+                cancelTurnTimer()
                 return emitToAll('End Game',win)
-            } 
+            }
+            beginTurnTimer() 
         }
 
         const token = socket.handshake.query.token
@@ -102,6 +106,32 @@ module.exports = server=>{
         }
         const getTurnSpecificInfo = (property)=>gameSpecificInfo.get(socket.room)[property]
 
+        const beginTurnTimer = ()=>{
+            cancelTurnTimer()
+            setTurnSpecificInfo('timer1',setTimeout(async ()=>{
+                socket.game.feed.push('Turn will automatically pass in 15 seconds')
+                await socket.game.save()
+                update()
+            },15000))
+            setTurnSpecificInfo('timer2',setTimeout(async ()=>{
+                await botPlay(socket.game.onTurn)
+                socket.game.players[socket.userid].active = false
+                if(!socket.game.players.every(e=>e.bot||e.active)){
+                    await Game.findByIdAndDelete(socket.game._id)
+                    emitToAll("Delete Inactive")
+                    return
+                }
+                await socketPassTurn()
+                update()
+            },30000))
+        }
+
+        const cancelTurnTimer = ()=>{
+            if(!getTurnSpecificInfo('timer1')) return
+            clearInterval(getTurnSpecificInfo('timer1'))
+            clearInterval(getTurnSpecificInfo('timer2'))
+        }
+
         socketFunctionFactory('Start Game',async ()=>{
             if(socket.game.inGame) throw Error("The game had started")
             if(socket.game.players.length === 1) throw Error("Not enough players")
@@ -109,6 +139,7 @@ module.exports = server=>{
             await distributeInitialCard(socket.game)
             await socketPassTurn()
             update()
+            beginTurnTimer()
         })
 
         turnFunctionFactory('Draw Card',async ()=>{
