@@ -139,6 +139,7 @@ const playCard = gameFunctionFactory(async (game,playerid,card,extraColor)=>{
         switch(action){
             case 'Reverse':
                 game.turnCoefficient = -game.turnCoefficient
+                if(game.players.length === 2) await passTurn(game)
                 break;
             case 'Skip':
                 await passTurn(game)
