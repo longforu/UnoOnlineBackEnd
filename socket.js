@@ -96,5 +96,6 @@ module.exports = server=>{
             const newGame = await restartGame(socket.game)
             emitToAll('New Game',newGame)
         })
+        socket.on('Emote',(emoji)=>io.volatile.to(socket.room).emit('Emote',{emoji,userid:socket.userid}))
     })
 }
