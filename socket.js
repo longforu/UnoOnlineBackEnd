@@ -72,7 +72,7 @@ module.exports = server=>{
             if(card.match(/Wild/) || card.match(/Draw 4/)) var color = botChooseColor(myDeck)
             await playCard(socket.game,id,card,color)
         }
-        const awaitTime = ()=>new Promise(r=>setTimeout(r,1000))
+        const awaitTime = ()=>new Promise(r=>setTimeout(r,2000))
         const socketPassTurn = async ()=>{
             await passTurn(socket.game)
             const win = await checkWinCondition(socket.game,socket.originalTurn)
