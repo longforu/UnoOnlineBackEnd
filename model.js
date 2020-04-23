@@ -118,8 +118,6 @@ const checkWinCondition = gameFunctionFactory(async (game,currentuser)=>{
 const distributeInitialCard = gameFunctionFactory(async (game)=>{
     game.players.forEach(player=>{
         for(let i = 0;i<7;i++) (player.cards.push(findOneThenRemove(game.deck)))
-        player.cards.push('blue 4')
-        player.cards.push('blue 4')
     })
     game.directives.push([7])
     await game.save()
