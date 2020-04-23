@@ -44,6 +44,7 @@ module.exports = server=>{
         const socketFunctionFactory = (message,func)=>socket.on(message,async (data)=>{
             socket.game = await Game.findById(socket.room)
             if(!socket.game) socket.emit('Critical Error')
+            socket.originalTurn = socket.game.onTurn
             try{await func(data)}
             catch(e){
                 console.log(e)
@@ -74,7 +75,7 @@ module.exports = server=>{
         const awaitTime = ()=>new Promise(r=>setTimeout(r,1000))
         const socketPassTurn = async ()=>{
             await passTurn(socket.game)
-            const win = await checkWinCondition(socket.game,socket.userid)
+            const win = await checkWinCondition(socket.game,socket.originalTurn)
             if(Number.isInteger(win)){
                 socket.game.inGame = false
                 socket.game.endGame = true
@@ -86,14 +87,7 @@ module.exports = server=>{
                 await update()
                 await awaitTime()
                 await botPlay(socket.game.onTurn)
-                const win = await checkWinCondition(socket.game,socket.game.onTurn)
-                if(Number.isInteger(win)){
-                    socket.game.inGame = false
-                    socket.game.endGame = true
-                    await socket.game.save()
-                    cancelTurnTimer()
-                    return emitToAll('End Game',win)
-                }
+                socket.originalTurn = socket.game.onTurn
                 await socketPassTurn(socket.game)
             }
             beginTurnTimer() 
