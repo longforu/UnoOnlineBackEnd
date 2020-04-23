@@ -60,6 +60,10 @@ const gameSchema = new mongoose.Schema({
     endGame:{
         type:Boolean,
         default:false
+    },
+    houseRule:{
+        type:[String],
+        default:[]
     }
 })
 const ttl = require('mongoose-ttl')
@@ -114,6 +118,8 @@ const checkWinCondition = gameFunctionFactory(async (game,currentuser)=>{
 const distributeInitialCard = gameFunctionFactory(async (game)=>{
     game.players.forEach(player=>{
         for(let i = 0;i<7;i++) (player.cards.push(findOneThenRemove(game.deck)))
+        player.cards.push('blue 4')
+        player.cards.push('blue 4')
     })
     game.directives.push([7])
     await game.save()
@@ -132,8 +138,6 @@ const handleDraw = async (game,playerid,card)=>{
 }
 
 const playCard = gameFunctionFactory(async (game,playerid,card,extraColor)=>{
-    game.feed.push(`${game.players[playerid].username} played a card.`)
-    game.directives.push([4,playerid])
     game.players[playerid].cards.splice(game.players[playerid].cards.indexOf(card),1)
     game.deck.push(card)
     game.currentTopCard = ((card==='Draw 4'||card==='Wild')?extraColor+' ':'') + card
@@ -155,6 +159,21 @@ const playCard = gameFunctionFactory(async (game,playerid,card,extraColor)=>{
                 break;
         }
     }
+    if(game.houseRule.includes('tripledouble')){
+        if(!(card.match(/Draw/) || card.match(/Wild/) || card.match(/Reverse/) || card.match(/Skip/))){
+            const otherCards = game.players[playerid].cards.filter(e=>e===card)
+            if(otherCards.length !== 0){
+                game.players[playerid].cards = game.players[playerid].cards.filter(e=>e!==card)
+                otherCards.forEach(e=>game.deck.push(e))
+                game.feed.push(`${game.players[playerid].username} played a Double!`)
+                game.directives.push([8,playerid,otherCards.length+1])
+                await game.save()
+                return;
+            }
+        }
+    }
+    game.feed.push(`${game.players[playerid].username} played a card.`)
+    game.directives.push([4,playerid])
     await game.save()
 })
 
@@ -168,7 +187,7 @@ const passTurn = gameFunctionFactory(async (game)=>{
 const restartGame = gameFunctionFactory(async (game)=>{
     const id = game._id
     await Game.findByIdAndDelete(id)
-    const newGame = new Game
+    const newGame = new Game({houseRule:game.houseRule})
     console.log(game)
     newGame.players = game.players.map(e=>new Player({username:e.username,bot:e.bot}))
     newGame._id = id

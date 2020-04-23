@@ -27,7 +27,9 @@ app.get('/game',(req,res)=>res.sendFile(path.join(__dirname,'./build','index.htm
 app.get('/join/:id',(req,res)=>res.sendFile(path.join(__dirname,'./build','index.html')))
 
 app.post('/create',async (req,res,next)=>{
-    const game = new Game
+    const houseRule = req.body.houseRule
+    console.log(houseRule)
+    const game = new Game({houseRule})
     const firstCard = game.deck.splice(_.random(game.deck.length-1),1)[0]
     game.currentTopCard = firstCard
     await game.save()
