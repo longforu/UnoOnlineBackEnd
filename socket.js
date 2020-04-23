@@ -61,7 +61,6 @@ module.exports = server=>{
             update()
         })
         const botPlay = async (id)=>{
-            console.log(id)
             const myDeck = socket.game.players[id].cards
             let card = botPlayCard(myDeck,socket.game.currentTopCard)
             console.log(card)
@@ -70,6 +69,7 @@ module.exports = server=>{
                 if(!verify(card,socket.game.currentTopCard)) return
             }
             if(card.match(/Wild/) || card.match(/Draw 4/)) var color = botChooseColor(myDeck)
+            if(card.match(/Draw 2/) || card.match(/Draw 4/) || card.match(/Skip/)) io.volatile.to(socket.room).emit('Emote',{emoji:'😈',userid:id})
             await playCard(socket.game,id,card,color)
         }
         const awaitTime = ()=>new Promise(r=>setTimeout(r,2000))
@@ -166,6 +166,10 @@ module.exports = server=>{
 
         turnFunctionFactory('Play Card',async (card)=>{
             if(card === 'Wild' || card === 'Draw 4') var extraColor = await awaitChooseColor()
+            let next = (socket.userid+socket.game.turnCoefficient)
+            if(next === socket.game.players.length) next = 0
+            else if(next < 0) next = socket.game.players.length-1
+            if((card.match(/Draw 2/) || card.match(/Draw 4/) || card.match(/Skip/)) && socket.game.players[next].bot) io.volatile.to(socket.room).emit('Emote',{emoji:'😡',userid:next})
             await playCard(socket.game,socket.userid,card,extraColor)
             await socketPassTurn()
         })
