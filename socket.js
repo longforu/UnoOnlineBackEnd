@@ -93,11 +93,13 @@ module.exports = server=>{
         const token = socket.handshake.query.token
         const {userid,id} = jwt.verify(token,process.env.SECRET_KEY)
         if((!userid && userid!==0) || !id){
-            throw Error("Game does not exist")
+            socket.emit('Critical Error')
+            return socket.disconnect()
         }
         socket.room = id
         socket.userid = userid
         socket.game = await Game.findById(id)
+        if(!socket.game) socket.emit('Critical Error')
         socket.join(socket.room)
         update()
         if(!gameSpecificInfo.has(socket.room)) gameSpecificInfo.set(socket.room,{})
