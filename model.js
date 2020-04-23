@@ -138,6 +138,21 @@ const handleDraw = async (game,playerid,card)=>{
 const playCard = gameFunctionFactory(async (game,playerid,card,extraColor)=>{
     game.players[playerid].cards.splice(game.players[playerid].cards.indexOf(card),1)
     game.deck.push(card)
+    if(game.houseRule.includes('tripledouble')){
+        if(!(card.match(/Draw/) || card.match(/Wild/) || card.match(/Reverse/) || card.match(/Skip/))){
+            const otherCards = game.players[playerid].cards.filter(e=>e===card)
+            if(otherCards.length !== 0){
+                game.players[playerid].cards = game.players[playerid].cards.filter(e=>e!==card)
+                otherCards.forEach(e=>game.deck.push(e))
+                game.feed.push(`${game.players[playerid].username} played a Double!`)
+                game.directives.push([8,playerid,otherCards.length+1])
+                await game.save()
+                return;
+            }
+        }
+    }
+    game.feed.push(`${game.players[playerid].username} played a card.`)
+    game.directives.push([4,playerid])
     game.currentTopCard = ((card==='Draw 4'||card==='Wild')?extraColor+' ':'') + card
     if(card === 'Draw 4') await handleDraw(game,playerid,4)
     else{
@@ -157,21 +172,6 @@ const playCard = gameFunctionFactory(async (game,playerid,card,extraColor)=>{
                 break;
         }
     }
-    if(game.houseRule.includes('tripledouble')){
-        if(!(card.match(/Draw/) || card.match(/Wild/) || card.match(/Reverse/) || card.match(/Skip/))){
-            const otherCards = game.players[playerid].cards.filter(e=>e===card)
-            if(otherCards.length !== 0){
-                game.players[playerid].cards = game.players[playerid].cards.filter(e=>e!==card)
-                otherCards.forEach(e=>game.deck.push(e))
-                game.feed.push(`${game.players[playerid].username} played a Double!`)
-                game.directives.push([8,playerid,otherCards.length+1])
-                await game.save()
-                return;
-            }
-        }
-    }
-    game.feed.push(`${game.players[playerid].username} played a card.`)
-    game.directives.push([4,playerid])
     await game.save()
 })
 
