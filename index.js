@@ -26,10 +26,18 @@ app.get('/join',(req,res)=>res.sendFile(path.join(__dirname,'./build','index.htm
 app.get('/game',(req,res)=>res.sendFile(path.join(__dirname,'./build','index.html')))
 app.get('/join/:id',(req,res)=>res.sendFile(path.join(__dirname,'./build','index.html')))
 
+const axios = require('axios')
+const notify = ()=>{
+    try{
+        axios.post('http://unomailer.herokuapp.com')
+    }catch(e){}
+}
+
 app.post('/create',async (req,res,next)=>{
     const houseRule = req.body.houseRule
     console.log(houseRule)
     const game = new Game({houseRule})
+    notify()
     const firstCard = game.deck.splice(_.random(game.deck.length-1),1)[0]
     game.currentTopCard = firstCard
     await game.save()
