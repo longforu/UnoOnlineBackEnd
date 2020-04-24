@@ -184,6 +184,7 @@ module.exports = server=>{
         })
 
         socketFunctionFactory('Add Bot',async ()=>{
+            if(socket.game.players.length === 4) return
             const id = socket.game.players.length
             const username = `Bot${id}🤖`
             await addBot(socket.game,username)
