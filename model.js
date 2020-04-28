@@ -16,6 +16,18 @@ const playerSchema = new mongoose.Schema({
     active:{
         type:Boolean,
         default:true
+    },
+    userid:{
+        type:mongoose.SchemaTypes.ObjectId,
+        ref:'users'
+    },
+    point:{
+        type:Number,
+        default:0
+    },
+    strike:{
+        type:Number,
+        default:0
     }
 })
 
@@ -64,6 +76,10 @@ const gameSchema = new mongoose.Schema({
     houseRule:{
         type:[String],
         default:[]
+    },
+    gameMode:{
+        type:String,
+        default:'Casual'
     }
 })
 const ttl = require('mongoose-ttl')
@@ -76,8 +92,11 @@ const gameFunctionFactory = func=>async(game,...args)=>{
     return func(game,...args)
 }
 
-const addPlayerToGame = gameFunctionFactory(async (game,username)=>{
-    const player = new Player({username})
+const addPlayerToGame = gameFunctionFactory(async (game,username,userid,point)=>{
+    const requisite = {username}
+    if(userid) requisite.userid = userid
+    if(point) requisite.point = point
+    const player = new Player(requisite)
     const id = game.players.length
     game.players.push(player)
     game.feed.push(`${username} joined the game.`)
@@ -185,7 +204,7 @@ const passTurn = gameFunctionFactory(async (game)=>{
 const restartGame = gameFunctionFactory(async (game)=>{
     const id = game._id
     await Game.findByIdAndDelete(id)
-    const newGame = new Game({houseRule:game.houseRule})
+    const newGame = new Game({houseRule:game.houseRule,gameMode:game.gameMode})
     console.log(game)
     newGame.players = game.players.map(e=>new Player({username:e.username,bot:e.bot}))
     newGame._id = id

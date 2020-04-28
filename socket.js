@@ -1,8 +1,11 @@
 const jwt = require('jsonwebtoken')
 const {Game,addPlayerToGame,passTurn,playCard,drawCardToPlayer,distributeInitialCard,checkWinCondition,restartGame,addBot} = require('./model')
+const {User,addUser,findRank,addPoints,changeKarma} = require('./user')
 
 module.exports = server=>{
-    const io = require('socket.io')(server)
+    let io = (require('socket.io')(server))
+    require('./waitingSocket')(io)
+    io = io.of('/game')
     const gameSpecificInfo = new Map()
 
     const verify = (card,topCard)=>{
@@ -34,10 +37,28 @@ module.exports = server=>{
     }
 
     io.on('connect',async (socket)=>{
+        const actOnUser = async (func)=>{
+            if(!socket.game.players[socket.userid].userid) return
+            await func(socket.game.players[socket.userid].userid)
+        }
+    
+        const competitiveAction = async (func)=>{
+            if(!socket.game.gameMode.match(/Competitive/)) return
+            else await actOnUser(func)
+        }
+        const userWinGame = async (playerid)=>{
+            const id = socket.game.players[playerid].userid
+            if(!id) return
+            const user = await User.findById(id)
+            user.gameWon++
+            user.points+=(socket.game.gameMode === 'Competitive Player')?700:400
+            await changeKarma(id,1)
+            await user.save()
+        }
         const emitToAll = (message,data)=>io.to(socket.room).emit(message,data)
 
         const update = async ()=>{
-            const game = await Game.findById(socket.room).select('-deck')
+            const game = await (await Game.findById(socket.room).select('-deck'))
             emitToAll('Update',game)
         }
 
@@ -54,7 +75,8 @@ module.exports = server=>{
         const turnFunctionFactory = (message,func)=>socketFunctionFactory(message,async (data)=>{
             if(socket.userid !== socket.game.onTurn) throw Error("Not your turn")
             if(!socket.game.inGame) throw Error("The game hasn't started yet")
-            socket.game.players[socket.userid].active = true
+            if(!socket.game.players[socket.userid].active) throw Error("You were inactive for 3 times")
+            socket.game.players[socket.userid].strike = 0
             await socket.game.save()
             beginTurnTimer()
             await func(data)
@@ -73,17 +95,49 @@ module.exports = server=>{
             await playCard(socket.game,id,card,color)
         }
         const awaitTime = ()=>new Promise(r=>setTimeout(r,2000))
+        const socketEndGame = async (win)=>{
+            await competitiveAction(async()=>{
+                for(let i = 0;i<socket.game.players.length;i++){
+                    if(i===win){
+                        await userWinGame(i)
+                        continue
+                    }
+                    else{
+                        const user = socket.game.players[i]
+                        if(!user.active) continue
+                        if(!user.userid) continue
+                        await changeKarma(user.userid,1)
+                        await addPoints(user.userid,(socket.game.gameMode === 'Competitive Player')?400:100)
+                        user.gameLost ++
+                        await user.save()
+                    }
+                }
+            })
+            let changeInPoint
+            await competitiveAction(()=>{
+                if(socket.game.gameMode==='Competitive Player') return changeInPoint = socket.game.players.map((e,i)=>{
+                    if(i===win) return 700
+                    if(e.active) return 400
+                    return 0
+                })
+                changeInPoint = socket.game.players.map((e,i)=>(i===win)?400:0)
+            })
+            console.log(changeInPoint)
+            emitToAll('End Game',{win,changeInPoint})
+        }
+
         const socketPassTurn = async ()=>{
             await passTurn(socket.game)
+            if((!socket.game.inGame) || socket.game.endGame) return
             const win = await checkWinCondition(socket.game,socket.originalTurn)
             if(Number.isInteger(win)){
                 socket.game.inGame = false
                 socket.game.endGame = true
                 await socket.game.save()
                 cancelTurnTimer()
-                return emitToAll('End Game',win)
+                socketEndGame(win)
             }
-            if(socket.game.players[socket.game.onTurn].bot){
+            if(socket.game.inGame&&(socket.game.players[socket.game.onTurn].bot || !socket.game.players[socket.game.onTurn].active)){
                 await update()
                 await awaitTime()
                 await botPlay(socket.game.onTurn)
@@ -94,6 +148,7 @@ module.exports = server=>{
         }
 
         const token = socket.handshake.query.token
+        console.log('token',token)
         const {userid,id} = jwt.verify(token,process.env.SECRET_KEY)
         if((!userid && userid!==0) || !id){
             socket.emit('Critical Error')
@@ -116,13 +171,34 @@ module.exports = server=>{
         const beginTurnTimer = ()=>{
             cancelTurnTimer()
             setTurnSpecificInfo('timer1',setTimeout(async ()=>{
+                socket.game = await Game.findById(socket.room)
                 socket.game.feed.push('Turn will automatically pass in 15 seconds')
                 await socket.game.save()
                 update()
             },15000))
             setTurnSpecificInfo('timer2',setTimeout(async ()=>{
+                socket.game = await Game.findById(socket.room)
                 await botPlay(socket.game.onTurn)
-                socket.game.players[socket.userid].active = false
+                socket.game.players[socket.game.onTurn].strike++
+                await socket.game.save()
+                if(socket.game.players[socket.game.onTurn].strike === 2){
+                    socket.game.players[socket.game.onTurn].active = false
+                    await socket.game.save()
+                    await competitiveAction(async (id)=>{
+                        console.log('hello')
+                        await changeKarma(id,-1)
+                        const user = await User.findById(id)
+                        user.gameLost++
+                        await user.save()
+                        const playersRemain = socket.game.players.filter(e=>(!e.bot)&&e.active)
+                        if(playersRemain.length>1) return
+                        socket.game.inGame = false
+                        socket.game.endGame = true
+                        await socket.game.save()
+                        cancelTurnTimer()
+                        await socketEndGame(socket.game.players.indexOf(playersRemain[0]))
+                    })
+                }   
                 if(!socket.game.players.every(e=>e.bot||e.active)){
                     await Game.findByIdAndDelete(socket.game._id)
                     emitToAll("Delete Inactive")
@@ -146,6 +222,15 @@ module.exports = server=>{
             await distributeInitialCard(socket.game)
             await socketPassTurn()
             update()
+            await competitiveAction(async ()=>{
+                for(let e of socket.game.players){
+                    if(e.userid){
+                        const user = await User.findById(e.userid)
+                        user.gamePlayed++
+                        await user.save()
+                    }
+                }
+            })
             beginTurnTimer()
         })
 
@@ -154,7 +239,6 @@ module.exports = server=>{
         })
 
         const awaitChooseColor = ()=>new Promise(r=>{
-            console.log('Choosing COlor')
             setTurnSpecificInfo('choosingColor',true)
             setTurnSpecificInfo('choosingColorFunction',r)
             socket.emit('Choose Color')
