@@ -108,8 +108,9 @@ module.exports = server=>{
                         if(!user.userid) continue
                         await changeKarma(user.userid,1)
                         await addPoints(user.userid,(socket.game.gameMode === 'Competitive Player')?400:100)
-                        user.gameLost ++
-                        await user.save()
+                        const userUser = await user.findById(user.userid)
+                        userUser.gameLost ++
+                        await userUser.save()
                     }
                 }
             })
