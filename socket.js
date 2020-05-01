@@ -186,7 +186,6 @@ module.exports = server=>{
                     socket.game.players[socket.game.onTurn].active = false
                     await socket.game.save()
                     await competitiveAction(async (id)=>{
-                        console.log('hello')
                         await changeKarma(id,-1)
                         const user = await User.findById(id)
                         user.gameLost++
