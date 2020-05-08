@@ -28,6 +28,10 @@ const playerSchema = new mongoose.Schema({
     strike:{
         type:Number,
         default:0
+    },
+    gameWon:{
+        type:Number,
+        default:0
     }
 })
 
@@ -124,7 +128,11 @@ const drawCardToPlayer = gameFunctionFactory(async (game,playerid)=>{
 
 const checkWinCondition = gameFunctionFactory(async (game,currentuser)=>{
     for(let playerid= 0;playerid<game.players.length; playerid++){
-        if(game.players[playerid].cards.length === 0) return playerid
+        if(game.players[playerid].cards.length === 0){
+            game.players[playerid].gameWon++
+            await game.save()
+            return playerid
+        }
         else if(game.players[playerid].cards.length === 1 && playerid === currentuser){
             game.feed.push(`${game.players[playerid].username} only have 1 card left!`)
             game.directives.push([5,playerid])
@@ -206,7 +214,8 @@ const restartGame = gameFunctionFactory(async (game)=>{
     await Game.findByIdAndDelete(id)
     const newGame = new Game({houseRule:game.houseRule,gameMode:game.gameMode})
     console.log(game)
-    newGame.players = game.players.map(e=>new Player({username:e.username,bot:e.bot}))
+    newGame.players = game.players.map(e=>new Player(e.toObject()))
+    newGame.players.forEach(e=>e.cards=[])
     newGame._id = id
     const firstCard = newGame.deck.splice(_.random(newGame.deck.length-1),1)[0]
     newGame.currentTopCard = firstCard

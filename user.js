@@ -13,7 +13,7 @@ const userSchema = new mongoose.Schema({
 const User = mongoose.model('users',userSchema)
 
 const userFunctionFactory = (func)=>async(...args)=>{
-      try{var result = await func(...args)}catch(e){console.log(error);return {error:true,message:e.message}}
+      try{var result = await func(...args)}catch(e){console.log(e);return {error:true,message:e.message}}
       return result
 }
 
